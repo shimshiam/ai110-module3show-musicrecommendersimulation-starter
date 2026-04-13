@@ -93,6 +93,41 @@ def main() -> None:
             "energy": 0.80,
             "likes_acoustic": False,
         },
+        # Conflicted Pop Fan — genre says pop, but mood and production contradict it
+        "Conflicted Pop Fan": {
+            "genre": "pop",
+            "mood": "sad",
+            "energy": 0.90,
+            "likes_acoustic": True,
+        },
+        # Low-Energy Happy Metal Listener — tests genre vs. low energy / happy mood
+        "Low-Energy Happy Metal Listener": {
+            "genre": "metal",
+            "mood": "happy",
+            "energy": 0.10,
+            "likes_acoustic": True,
+        },
+        # Electronic Ballad Seeker — low energy but prefers non-acoustic sound
+        "Electronic Ballad Seeker": {
+            "genre": "r&b",
+            "mood": "romantic",
+            "energy": 0.20,
+            "likes_acoustic": False,
+        },
+        # Impossible Energy — out-of-range energy to see whether scoring behaves safely
+        "Impossible Energy": {
+            "genre": "jazz",
+            "mood": "mellow",
+            "energy": 1.50,
+            "likes_acoustic": True,
+        },
+        # No Good Match — likely no exact genre/mood pair in the dataset
+        "No Good Match": {
+            "genre": "classical",
+            "mood": "nostalgic",
+            "energy": 0.50,
+            "likes_acoustic": True,
+        },
     }
 
     for name, prefs in profiles.items():
