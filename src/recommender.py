@@ -93,6 +93,13 @@ def load_songs(csv_path: str) -> List[Dict]:
                 "valence": float(row["valence"]),
                 "danceability": float(row["danceability"]),
                 "acousticness": float(row["acousticness"]),
+                "popularity": int(row["popularity"]),
+                "release_year": int(row["release_year"]),
+                "detailed_mood_tags": row["detailed_mood_tags"].split(",") if row["detailed_mood_tags"] else [],
+                "artist_popularity": int(row["artist_popularity"]),
+                "song_length_seconds": int(row["song_length_seconds"]),
+                "language": row["language"],
+                "explicit": int(row["explicit"]),
             })
     return songs
 
