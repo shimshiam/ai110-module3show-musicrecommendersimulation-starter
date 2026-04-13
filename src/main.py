@@ -14,10 +14,17 @@ try:
 except ModuleNotFoundError:
     from recommender import load_songs, recommend_songs, BalancedScorer, GenreFirstScorer, MoodFirstScorer, EnergyFocusedScorer
 
+try:
+    from tabulate import tabulate
+except ImportError:
+    print("Warning: tabulate not installed. Install with: pip install tabulate")
+    tabulate = None
 
-def format_bar(score: float, max_score: float = 4.5, width: int = 20) -> str:
+
+def format_bar(score: float, max_score: float = 6.0, width: int = 15) -> str:
+    """Create a visual progress bar for the score."""
     filled = int((score / max_score) * width)
-    return "#" * filled + "-" * (width - filled)
+    return "█" * filled + "░" * (width - filled)
 
 
 def run_profile(name: str, user_prefs: dict, songs: list, k: int = 5) -> None:
@@ -29,38 +36,78 @@ def run_profile(name: str, user_prefs: dict, songs: list, k: int = 5) -> None:
         "energy_focused": EnergyFocusedScorer(),
     }
     scorer = scorer_map.get(strategy_name, BalancedScorer())
-    
-    prefs_display = (
-        f"Genre: {user_prefs.get('genre', '-'):12s} "
-        f"Mood: {user_prefs.get('mood', '-'):12s} "
-        f"Energy: {user_prefs.get('energy', '-'):<5} "
-        f"Acoustic: {'yes' if user_prefs.get('likes_acoustic') else 'no'} "
-        f"Strategy: {strategy_name}"
-    )
 
-    print()
-    print("+" + "-" * 68 + "+")
-    print(f"|  PROFILE: {name:56s}|")
-    print("|  " + prefs_display.ljust(66) + "|")
-    print("+" + "-" * 68 + "+")
+    # Display profile header
+    print(f"\n{'='*80}")
+    print(f"🎵 PROFILE: {name}")
+    print(f"{'='*80}")
+
+    prefs_display = (
+        f"Genre: {user_prefs.get('genre', '-')} | "
+        f"Mood: {user_prefs.get('mood', '-')} | "
+        f"Energy: {user_prefs.get('energy', '-')} | "
+        f"Acoustic: {'Yes' if user_prefs.get('likes_acoustic') else 'No'} | "
+        f"Strategy: {strategy_name.title()}"
+    )
+    print(prefs_display)
+    print("-" * 80)
 
     recommendations = recommend_songs(user_prefs, songs, k=k, scorer=scorer)
 
-    for rank, rec in enumerate(recommendations, 1):
-        song, score, explanation = rec
-        bar = format_bar(score, max_score=6.0)  # Updated max score
-        reasons = explanation.split("; ")
+    if tabulate and recommendations:
+        # Create table data
+        table_data = []
+        for rank, rec in enumerate(recommendations, 1):
+            song, score, explanation = rec
+            reasons = explanation.split("; ")
 
-        print(f"|                                                                      |")
-        print(f"|  #{rank}  {song['title']:<25s} {song['artist']:<18s}|")
-        print(f"|       Genre: {song['genre']:<12s}  Mood: {song['mood']:<14s}   |")
-        print(f"|       Score: {score:.2f} / 6.00  [{bar}]   |")
+            # Create a compact reason summary (first 2-3 reasons)
+            reason_summary = " | ".join(reasons[:3])
+            if len(reasons) > 3:
+                reason_summary += f" (+{len(reasons)-3} more)"
 
-        for reason in reasons:
-            print(f"|         {reason:<59s}|")
+            table_data.append([
+                f"#{rank}",
+                f"{song['title'][:22]}{'...' if len(song['title']) > 22 else ''}",
+                song['artist'][:15],
+                song['genre'],
+                song['mood'],
+                f"{score:.2f}",
+                format_bar(score),
+                reason_summary[:40] + ("..." if len(reason_summary) > 40 else "")
+            ])
 
-    print(f"|                                                                      |")
-    print("+" + "-" * 68 + "+")
+        # Display table
+        headers = ["Rank", "Title", "Artist", "Genre", "Mood", "Score", "Visual", "Key Reasons"]
+        print(tabulate(table_data, headers=headers, tablefmt="grid", maxcolwidths=[4, 25, 15, 10, 10, 6, 15, 42]))
+
+        # Show detailed breakdown for top recommendation
+        if recommendations:
+            print(f"\n📋 DETAILED BREAKDOWN - Top Recommendation:")
+            top_song, top_score, top_explanation = recommendations[0]
+            print(f"   '{top_song['title']}' by {top_song['artist']}")
+            print(f"   Final Score: {top_score:.2f}/6.00")
+            print("   Scoring breakdown:")
+            for reason in top_explanation.split("; "):
+                print(f"     • {reason}")
+
+    else:
+        # Fallback to original format if tabulate not available
+        for rank, rec in enumerate(recommendations, 1):
+            song, score, explanation = rec
+            bar = format_bar(score, max_score=6.0)
+            reasons = explanation.split("; ")
+
+            print(f"\n#{rank}  {song['title']:<25s} {song['artist']:<18s}")
+            print(f"     Genre: {song['genre']:<12s}  Mood: {song['mood']:<14s}")
+            print(f"     Score: {score:.2f} / 6.00  [{bar}]")
+
+            for reason in reasons[:3]:  # Show first 3 reasons
+                print(f"       {reason}")
+            if len(reasons) > 3:
+                print(f"       ... and {len(reasons)-3} more reasons")
+
+    print(f"{'='*80}")
 
 
 def main() -> None:
