@@ -29,21 +29,23 @@ UserProfile preferences:
 
 ### Algorithm Recipe
 
-The system uses additive point scoring. Each song starts at 0 points and earns points for each feature that matches or is close to the users preferences:
+The system uses additive point scoring with different strategies. Each song starts at 0 points and earns points for each feature that matches or is close to the users preferences. Users can choose from multiple ranking strategies:
 
-- **Genre match: +1.0 points** - if the songs genre exactly matches the users favorite genre. This is a moderate weight after reducing it from 2.0 to balance with energy.
-- **Mood match: +1.0 point** - if the songs mood matches the users preferred mood. Mood is now equal to genre in importance.
-- **Energy closeness: up to +2.0 points** - calculated as `2.0 * (1.0 - |user_target - song_energy|)`, clamped to non-negative. This rewards proximity strongly, with perfect matches getting full points and large gaps getting zero.
-- **Acoustic fit: up to +0.5 points** - calculated as `0.5 x song_acousticness` if the user likes acoustic or `0.5 x (1.0 - song_acousticness)` if they prefer electronic. Lowest weight because production style is more of a texture preference than a dealbreaker.
-- **Popularity bonus: up to +0.5 points** - based on song popularity (0-100), scaled to 0-0.5.
-- **Artist popularity bonus: up to +0.25 points** - based on artist popularity (0-100), scaled to 0-0.25.
-- **Detailed mood tag match: +0.5 points** - if the user's mood appears in the song's detailed mood tags.
-- **Modern release bonus: +0.3 points** - for songs released in 2020 or later.
-- **Ideal length bonus: +0.2 points** - for songs between 180-240 seconds.
+- **Balanced (default)**: Equal weights for genre (+1.0), mood (+1.0), energy (up to +2.0), acoustic (up to +0.5), plus bonuses for popularity, modern releases, etc.
+- **Genre-First**: Prioritizes genre matches (+2.0), reduces mood (+0.5) and energy (up to +1.0).
+- **Mood-First**: Prioritizes mood matches (+2.0), reduces genre (+0.5) and energy (up to +1.0), boosts detailed mood tags (+0.8).
+- **Energy-Focused**: Prioritizes energy closeness (up to +3.0), reduces genre and mood (+0.5 each).
+
+Additional bonuses:
+- **Popularity bonus: up to +0.5 points** - based on song popularity (0-100), scaled.
+- **Artist popularity bonus: up to +0.25 points** - based on artist popularity.
+- **Detailed mood tag match: +0.5 points** - if the user's mood appears in the song's tags.
+- **Modern release bonus: +0.3 points** - for songs released in 2020+.
+- **Ideal length bonus: +0.2 points** - for songs 180-240 seconds.
 - **English language bonus: +0.1 points** - for English-language songs.
 - **Explicit content penalty: -0.5 points** - subtracted for explicit songs.
 
-Maximum possible score: **~6.0 points** (all bonuses except penalty)
+Maximum possible score: **~6.0 points** (varies by strategy)
 
 After scoring all 20 songs the system sorts them highest to lowest and returns the top k (default 5).
 
@@ -54,11 +56,11 @@ INPUT                          PROCESS                         OUTPUT
 ─────                          ───────                         ──────
 songs.csv (20 songs)  ──┐
                         ├──>  For each song:                  Sort all 20 scored
-User Preferences  ──────┘       Check genre   (+1.0 or 0)     songs by score
-  genre: "pop"                  Check mood    (+1.0 or 0)      descending
-  mood: "happy"                 Calc energy   (+0.0 to 2.0)         │
-  energy: 0.80                  Calc acoustic (+0.0 to 0.5)         v
-  likes_acoustic: false         Sum = total score              Return top 5
+User Preferences  ──────┘       Apply strategy                songs by score
+  genre: "pop"                  (genre/mood/energy weights)    descending
+  mood: "happy"                 Calc bonuses  (+0.0 to 1.35)        │
+  energy: 0.80                  Sum = total score                   v
+  strategy: "balanced"          Return top 5
                                                                with explanations
 ```
 

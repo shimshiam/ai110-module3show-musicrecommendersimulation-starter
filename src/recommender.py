@@ -1,6 +1,7 @@
 import csv
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
+from abc import ABC, abstractmethod
 
 @dataclass
 class Song:
@@ -18,6 +19,13 @@ class Song:
     valence: float
     danceability: float
     acousticness: float
+    popularity: int
+    release_year: int
+    detailed_mood_tags: List[str]
+    artist_popularity: int
+    song_length_seconds: int
+    language: str
+    explicit: int
 
 @dataclass
 class UserProfile:
@@ -30,23 +38,269 @@ class UserProfile:
     target_energy: float
     likes_acoustic: bool
 
+
+class Scorer(ABC):
+    """Abstract base class for scoring strategies."""
+    
+    @abstractmethod
+    def score_song(self, user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
+        """Score one song against user prefs and return (points, reasons)."""
+        pass
+
+
+class BalancedScorer(Scorer):
+    """Default balanced scoring strategy."""
+    
+    def score_song(self, user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
+        return score_song(user_prefs, song)
+
+
+class GenreFirstScorer(Scorer):
+    """Prioritizes genre matches with higher weights."""
+    
+    def score_song(self, user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
+        score = 0.0
+        reasons = []
+
+        # Genre match: +2.0 points (high importance)
+        if song["genre"] == user_prefs.get("genre"):
+            score += 2.0
+            reasons.append(f"+2.0 genre match ({song['genre']})")
+
+        # Mood match: +0.5 point (reduced)
+        if song["mood"] == user_prefs.get("mood"):
+            score += 0.5
+            reasons.append(f"+0.5 mood match ({song['mood']})")
+
+        # Energy closeness: up to +1.0 point (reduced)
+        if "energy" in user_prefs:
+            energy_pts = max(0.0, 1.0 * (1.0 - abs(user_prefs["energy"] - song["energy"])))
+            score += energy_pts
+            reasons.append(f"+{energy_pts:.2f} energy closeness")
+
+        # Acoustic fit: up to +0.5 points
+        if "likes_acoustic" in user_prefs:
+            if user_prefs["likes_acoustic"]:
+                acoustic_pts = 0.5 * song.get("acousticness", 0.5)
+                score += acoustic_pts
+                if acoustic_pts > 0.3:
+                    reasons.append(f"+{acoustic_pts:.2f} acoustic sound")
+            else:
+                acoustic_pts = 0.5 * (1.0 - song.get("acousticness", 0.5))
+                score += acoustic_pts
+                if acoustic_pts > 0.3:
+                    reasons.append(f"+{acoustic_pts:.2f} electronic/produced sound")
+
+        # Add new bonuses with reduced weights
+        popularity_pts = (song.get("popularity", 50) / 100) * 0.3
+        score += popularity_pts
+        reasons.append(f"+{popularity_pts:.2f} popularity bonus")
+
+        artist_pop_pts = (song.get("artist_popularity", 50) / 100) * 0.15
+        score += artist_pop_pts
+        reasons.append(f"+{artist_pop_pts:.2f} artist popularity bonus")
+
+        if user_prefs.get("mood") in song.get("detailed_mood_tags", []):
+            score += 0.3
+            reasons.append("+0.3 detailed mood tag match")
+
+        if song.get("release_year", 2000) >= 2020:
+            score += 0.2
+            reasons.append("+0.2 modern release bonus")
+
+        length = song.get("song_length_seconds", 200)
+        if 180 <= length <= 240:
+            score += 0.1
+            reasons.append("+0.1 ideal length bonus")
+
+        if song.get("language") == "English":
+            score += 0.05
+            reasons.append("+0.05 English language bonus")
+
+        if song.get("explicit", 0) == 1:
+            score -= 0.3
+            reasons.append("-0.3 explicit content penalty")
+
+        if not reasons:
+            reasons.append("weak overall match")
+
+        return (score, reasons)
+
+
+class MoodFirstScorer(Scorer):
+    """Prioritizes mood matches with higher weights."""
+    
+    def score_song(self, user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
+        score = 0.0
+        reasons = []
+
+        # Genre match: +0.5 point (reduced)
+        if song["genre"] == user_prefs.get("genre"):
+            score += 0.5
+            reasons.append(f"+0.5 genre match ({song['genre']})")
+
+        # Mood match: +2.0 points (high importance)
+        if song["mood"] == user_prefs.get("mood"):
+            score += 2.0
+            reasons.append(f"+2.0 mood match ({song['mood']})")
+
+        # Energy closeness: up to +1.0 point
+        if "energy" in user_prefs:
+            energy_pts = max(0.0, 1.0 * (1.0 - abs(user_prefs["energy"] - song["energy"])))
+            score += energy_pts
+            reasons.append(f"+{energy_pts:.2f} energy closeness")
+
+        # Acoustic fit: up to +0.5 points
+        if "likes_acoustic" in user_prefs:
+            if user_prefs["likes_acoustic"]:
+                acoustic_pts = 0.5 * song.get("acousticness", 0.5)
+                score += acoustic_pts
+                if acoustic_pts > 0.3:
+                    reasons.append(f"+{acoustic_pts:.2f} acoustic sound")
+            else:
+                acoustic_pts = 0.5 * (1.0 - song.get("acousticness", 0.5))
+                score += acoustic_pts
+                if acoustic_pts > 0.3:
+                    reasons.append(f"+{acoustic_pts:.2f} electronic/produced sound")
+
+        # Add new bonuses
+        popularity_pts = (song.get("popularity", 50) / 100) * 0.3
+        score += popularity_pts
+        reasons.append(f"+{popularity_pts:.2f} popularity bonus")
+
+        artist_pop_pts = (song.get("artist_popularity", 50) / 100) * 0.15
+        score += artist_pop_pts
+        reasons.append(f"+{artist_pop_pts:.2f} artist popularity bonus")
+
+        if user_prefs.get("mood") in song.get("detailed_mood_tags", []):
+            score += 0.8  # Higher for mood-first
+            reasons.append("+0.8 detailed mood tag match")
+
+        if song.get("release_year", 2000) >= 2020:
+            score += 0.2
+            reasons.append("+0.2 modern release bonus")
+
+        length = song.get("song_length_seconds", 200)
+        if 180 <= length <= 240:
+            score += 0.1
+            reasons.append("+0.1 ideal length bonus")
+
+        if song.get("language") == "English":
+            score += 0.05
+            reasons.append("+0.05 English language bonus")
+
+        if song.get("explicit", 0) == 1:
+            score -= 0.3
+            reasons.append("-0.3 explicit content penalty")
+
+        if not reasons:
+            reasons.append("weak overall match")
+
+        return (score, reasons)
+
+
+class EnergyFocusedScorer(Scorer):
+    """Prioritizes energy closeness with higher weights."""
+    
+    def score_song(self, user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
+        score = 0.0
+        reasons = []
+
+        # Genre match: +0.5 point (reduced)
+        if song["genre"] == user_prefs.get("genre"):
+            score += 0.5
+            reasons.append(f"+0.5 genre match ({song['genre']})")
+
+        # Mood match: +0.5 point (reduced)
+        if song["mood"] == user_prefs.get("mood"):
+            score += 0.5
+            reasons.append(f"+0.5 mood match ({song['mood']})")
+
+        # Energy closeness: up to +3.0 points (very high importance)
+        if "energy" in user_prefs:
+            energy_pts = max(0.0, 3.0 * (1.0 - abs(user_prefs["energy"] - song["energy"])))
+            score += energy_pts
+            reasons.append(f"+{energy_pts:.2f} energy closeness")
+
+        # Acoustic fit: up to +0.5 points
+        if "likes_acoustic" in user_prefs:
+            if user_prefs["likes_acoustic"]:
+                acoustic_pts = 0.5 * song.get("acousticness", 0.5)
+                score += acoustic_pts
+                if acoustic_pts > 0.3:
+                    reasons.append(f"+{acoustic_pts:.2f} acoustic sound")
+            else:
+                acoustic_pts = 0.5 * (1.0 - song.get("acousticness", 0.5))
+                score += acoustic_pts
+                if acoustic_pts > 0.3:
+                    reasons.append(f"+{acoustic_pts:.2f} electronic/produced sound")
+
+        # Add new bonuses with energy focus
+        popularity_pts = (song.get("popularity", 50) / 100) * 0.3
+        score += popularity_pts
+        reasons.append(f"+{popularity_pts:.2f} popularity bonus")
+
+        artist_pop_pts = (song.get("artist_popularity", 50) / 100) * 0.15
+        score += artist_pop_pts
+        reasons.append(f"+{artist_pop_pts:.2f} artist popularity bonus")
+
+        if user_prefs.get("mood") in song.get("detailed_mood_tags", []):
+            score += 0.3
+            reasons.append("+0.3 detailed mood tag match")
+
+        if song.get("release_year", 2000) >= 2020:
+            score += 0.2
+            reasons.append("+0.2 modern release bonus")
+
+        length = song.get("song_length_seconds", 200)
+        if 180 <= length <= 240:
+            score += 0.1
+            reasons.append("+0.1 ideal length bonus")
+
+        if song.get("language") == "English":
+            score += 0.05
+            reasons.append("+0.05 English language bonus")
+
+        if song.get("explicit", 0) == 1:
+            score -= 0.3
+            reasons.append("-0.3 explicit content penalty")
+
+        if not reasons:
+            reasons.append("weak overall match")
+
+        return (score, reasons)
+
 class Recommender:
     """
     OOP implementation of the recommendation logic.
     Required by tests/test_recommender.py
     """
-    def __init__(self, songs: List[Song]):
+    def __init__(self, songs: List[Song], scorer: Optional[Scorer] = None):
         self.songs = songs
+        self.scorer = scorer or BalancedScorer()
 
     def recommend(self, user: UserProfile, k: int = 5) -> List[Song]:
         """Score all songs against a user profile and return the top k sorted by score."""
         scored = []
         for song in self.songs:
             song_dict = {
+                "id": song.id,
+                "title": song.title,
+                "artist": song.artist,
                 "genre": song.genre,
                 "mood": song.mood,
                 "energy": song.energy,
+                "tempo_bpm": song.tempo_bpm,
+                "valence": song.valence,
+                "danceability": song.danceability,
                 "acousticness": song.acousticness,
+                "popularity": song.popularity,
+                "release_year": song.release_year,
+                "detailed_mood_tags": song.detailed_mood_tags,
+                "artist_popularity": song.artist_popularity,
+                "song_length_seconds": song.song_length_seconds,
+                "language": song.language,
+                "explicit": song.explicit,
             }
             user_dict = {
                 "genre": user.favorite_genre,
@@ -54,7 +308,7 @@ class Recommender:
                 "energy": user.target_energy,
                 "likes_acoustic": user.likes_acoustic,
             }
-            score, _ = score_song(user_dict, song_dict)
+            score, _ = self.scorer.score_song(user_dict, song_dict)
             scored.append((song, score))
         scored.sort(key=lambda x: x[1], reverse=True)
         return [song for song, _ in scored[:k]]
@@ -62,10 +316,23 @@ class Recommender:
     def explain_recommendation(self, user: UserProfile, song: Song) -> str:
         """Return a semicolon-joined string of reasons why a song matches a user."""
         song_dict = {
+            "id": song.id,
+            "title": song.title,
+            "artist": song.artist,
             "genre": song.genre,
             "mood": song.mood,
             "energy": song.energy,
+            "tempo_bpm": song.tempo_bpm,
+            "valence": song.valence,
+            "danceability": song.danceability,
             "acousticness": song.acousticness,
+            "popularity": song.popularity,
+            "release_year": song.release_year,
+            "detailed_mood_tags": song.detailed_mood_tags,
+            "artist_popularity": song.artist_popularity,
+            "song_length_seconds": song.song_length_seconds,
+            "language": song.language,
+            "explicit": song.explicit,
         }
         user_dict = {
             "genre": user.favorite_genre,
@@ -73,7 +340,7 @@ class Recommender:
             "energy": user.target_energy,
             "likes_acoustic": user.likes_acoustic,
         }
-        _, reasons = score_song(user_dict, song_dict)
+        _, reasons = self.scorer.score_song(user_dict, song_dict)
         return "; ".join(reasons)
 
 def load_songs(csv_path: str) -> List[Dict]:
@@ -178,11 +445,13 @@ def score_song(user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
 
     return (score, reasons)
 
-def recommend_songs(user_prefs: Dict, songs: List[Dict], k: int = 5) -> List[Tuple[Dict, float, str]]:
+def recommend_songs(user_prefs: Dict, songs: List[Dict], k: int = 5, scorer: Optional[Scorer] = None) -> List[Tuple[Dict, float, str]]:
     """Score all songs, sort by score descending, and return the top k with explanations."""
+    if scorer is None:
+        scorer = BalancedScorer()
     scored = []
     for song in songs:
-        score, reasons = score_song(user_prefs, song)
+        score, reasons = scorer.score_song(user_prefs, song)
         explanation = "; ".join(reasons)
         scored.append((song, score, explanation))
     scored.sort(key=lambda x: x[1], reverse=True)

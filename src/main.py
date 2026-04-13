@@ -10,9 +10,9 @@ You will implement the functions in recommender.py:
 """
 
 try:
-    from src.recommender import load_songs, recommend_songs
+    from src.recommender import load_songs, recommend_songs, BalancedScorer, GenreFirstScorer, MoodFirstScorer, EnergyFocusedScorer
 except ModuleNotFoundError:
-    from recommender import load_songs, recommend_songs
+    from recommender import load_songs, recommend_songs, BalancedScorer, GenreFirstScorer, MoodFirstScorer, EnergyFocusedScorer
 
 
 def format_bar(score: float, max_score: float = 4.5, width: int = 20) -> str:
@@ -21,36 +21,46 @@ def format_bar(score: float, max_score: float = 4.5, width: int = 20) -> str:
 
 
 def run_profile(name: str, user_prefs: dict, songs: list, k: int = 5) -> None:
+    strategy_name = user_prefs.get("strategy", "balanced")
+    scorer_map = {
+        "balanced": BalancedScorer(),
+        "genre_first": GenreFirstScorer(),
+        "mood_first": MoodFirstScorer(),
+        "energy_focused": EnergyFocusedScorer(),
+    }
+    scorer = scorer_map.get(strategy_name, BalancedScorer())
+    
     prefs_display = (
         f"Genre: {user_prefs.get('genre', '-'):12s} "
         f"Mood: {user_prefs.get('mood', '-'):12s} "
         f"Energy: {user_prefs.get('energy', '-'):<5} "
-        f"Acoustic: {'yes' if user_prefs.get('likes_acoustic') else 'no'}"
+        f"Acoustic: {'yes' if user_prefs.get('likes_acoustic') else 'no'} "
+        f"Strategy: {strategy_name}"
     )
 
     print()
-    print("+" + "-" * 58 + "+")
-    print(f"|  PROFILE: {name:46s}|")
-    print("|  " + prefs_display.ljust(56) + "|")
-    print("+" + "-" * 58 + "+")
+    print("+" + "-" * 68 + "+")
+    print(f"|  PROFILE: {name:56s}|")
+    print("|  " + prefs_display.ljust(66) + "|")
+    print("+" + "-" * 68 + "+")
 
-    recommendations = recommend_songs(user_prefs, songs, k=k)
+    recommendations = recommend_songs(user_prefs, songs, k=k, scorer=scorer)
 
     for rank, rec in enumerate(recommendations, 1):
         song, score, explanation = rec
-        bar = format_bar(score)
+        bar = format_bar(score, max_score=6.0)  # Updated max score
         reasons = explanation.split("; ")
 
-        print(f"|                                                          |")
+        print(f"|                                                                      |")
         print(f"|  #{rank}  {song['title']:<25s} {song['artist']:<18s}|")
         print(f"|       Genre: {song['genre']:<12s}  Mood: {song['mood']:<14s}   |")
-        print(f"|       Score: {score:.2f} / 4.50  [{bar}]   |")
+        print(f"|       Score: {score:.2f} / 6.00  [{bar}]   |")
 
         for reason in reasons:
-            print(f"|         {reason:<49s}|")
+            print(f"|         {reason:<59s}|")
 
-    print(f"|                                                          |")
-    print("+" + "-" * 58 + "+")
+    print(f"|                                                                      |")
+    print("+" + "-" * 68 + "+")
 
 
 def main() -> None:
@@ -64,6 +74,7 @@ def main() -> None:
             "mood": "happy",
             "energy": 0.8,
             "likes_acoustic": False,
+            "strategy": "balanced",
         },
         # The late-night study session — low energy, chill, acoustic lofi
         "Study Session": {
@@ -71,6 +82,7 @@ def main() -> None:
             "mood": "chill",
             "energy": 0.35,
             "likes_acoustic": True,
+            "strategy": "balanced",
         },
         # The workout grinder — max energy, intense, electronic production
         "Gym Grinder": {
@@ -78,6 +90,7 @@ def main() -> None:
             "mood": "aggressive",
             "energy": 0.95,
             "likes_acoustic": False,
+            "strategy": "energy_focused",
         },
         # The mellow evening wind-down — mid-low energy, acoustic, soulful
         "Evening Wind-Down": {
@@ -85,6 +98,7 @@ def main() -> None:
             "mood": "soulful",
             "energy": 0.50,
             "likes_acoustic": True,
+            "strategy": "balanced",
         },
         # The road trip vibe — mid-high energy, confident, electronic
         "Road Trip": {
@@ -92,6 +106,7 @@ def main() -> None:
             "mood": "confident",
             "energy": 0.80,
             "likes_acoustic": False,
+            "strategy": "genre_first",
         },
         # Conflicted Pop Fan — genre says pop, but mood and production contradict it
         "Conflicted Pop Fan": {
@@ -99,6 +114,7 @@ def main() -> None:
             "mood": "sad",
             "energy": 0.90,
             "likes_acoustic": True,
+            "strategy": "mood_first",
         },
         # Low-Energy Happy Metal Listener — tests genre vs. low energy / happy mood
         "Low-Energy Happy Metal Listener": {
@@ -106,6 +122,7 @@ def main() -> None:
             "mood": "happy",
             "energy": 0.10,
             "likes_acoustic": True,
+            "strategy": "balanced",
         },
         # Electronic Ballad Seeker — low energy but prefers non-acoustic sound
         "Electronic Ballad Seeker": {
@@ -113,6 +130,7 @@ def main() -> None:
             "mood": "romantic",
             "energy": 0.20,
             "likes_acoustic": False,
+            "strategy": "balanced",
         },
         # Impossible Energy — out-of-range energy to see whether scoring behaves safely
         "Impossible Energy": {
@@ -120,6 +138,7 @@ def main() -> None:
             "mood": "mellow",
             "energy": 1.50,
             "likes_acoustic": True,
+            "strategy": "balanced",
         },
         # No Good Match — likely no exact genre/mood pair in the dataset
         "No Good Match": {
@@ -127,6 +146,7 @@ def main() -> None:
             "mood": "nostalgic",
             "energy": 0.50,
             "likes_acoustic": True,
+            "strategy": "balanced",
         },
     }
 

@@ -13,6 +13,13 @@ def make_small_recommender() -> Recommender:
             valence=0.9,
             danceability=0.8,
             acousticness=0.2,
+            popularity=80,
+            release_year=2022,
+            detailed_mood_tags=["euphoric", "upbeat"],
+            artist_popularity=75,
+            song_length_seconds=210,
+            language="English",
+            explicit=0,
         ),
         Song(
             id=2,
@@ -25,6 +32,13 @@ def make_small_recommender() -> Recommender:
             valence=0.6,
             danceability=0.5,
             acousticness=0.9,
+            popularity=70,
+            release_year=2021,
+            detailed_mood_tags=["relaxed", "calm"],
+            artist_popularity=65,
+            song_length_seconds=240,
+            language="Instrumental",
+            explicit=0,
         ),
     ]
     return Recommender(songs)
