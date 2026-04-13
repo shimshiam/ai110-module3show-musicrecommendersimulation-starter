@@ -143,6 +143,12 @@ Use this section to document the experiments you ran. For example:
 - What happened when you added tempo or valence to the score
 - How did your system behave for different types of users
 
+### Recent experiment
+
+- Weight-shifted genre from +2.0 to +1.0 and energy from up to +1.0 to up to +2.0.
+- Running `python -m src.main` after this change showed stronger promotion of songs with energy closer to the target, even when genre did not match exactly.
+- This change feels more like a behavioral shift than an obvious accuracy improvement: it makes recommendations different by favoring energy alignment, but the resulting top songs are not clearly more “correct” in every profile.
+
 ---
 
 ## Limitations and Risks
