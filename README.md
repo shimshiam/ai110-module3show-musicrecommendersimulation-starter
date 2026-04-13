@@ -35,8 +35,15 @@ The system uses additive point scoring. Each song starts at 0 points and earns p
 - **Mood match: +1.0 point** - if the songs mood matches the users preferred mood. Mood is now equal to genre in importance.
 - **Energy closeness: up to +2.0 points** - calculated as `2.0 * (1.0 - |user_target - song_energy|)`, clamped to non-negative. This rewards proximity strongly, with perfect matches getting full points and large gaps getting zero.
 - **Acoustic fit: up to +0.5 points** - calculated as `0.5 x song_acousticness` if the user likes acoustic or `0.5 x (1.0 - song_acousticness)` if they prefer electronic. Lowest weight because production style is more of a texture preference than a dealbreaker.
+- **Popularity bonus: up to +0.5 points** - based on song popularity (0-100), scaled to 0-0.5.
+- **Artist popularity bonus: up to +0.25 points** - based on artist popularity (0-100), scaled to 0-0.25.
+- **Detailed mood tag match: +0.5 points** - if the user's mood appears in the song's detailed mood tags.
+- **Modern release bonus: +0.3 points** - for songs released in 2020 or later.
+- **Ideal length bonus: +0.2 points** - for songs between 180-240 seconds.
+- **English language bonus: +0.1 points** - for English-language songs.
+- **Explicit content penalty: -0.5 points** - subtracted for explicit songs.
 
-Maximum possible score: **4.5 points** (genre + mood + perfect energy + perfect acoustic fit)
+Maximum possible score: **~6.0 points** (all bonuses except penalty)
 
 After scoring all 20 songs the system sorts them highest to lowest and returns the top k (default 5).
 

@@ -104,7 +104,7 @@ def load_songs(csv_path: str) -> List[Dict]:
     return songs
 
 def score_song(user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
-    """Score one song against user prefs and return (points, reasons). Max 4.5."""
+    """Score one song against user prefs and return (points, reasons). Max ~6.0."""
     score = 0.0
     reasons = []
 
@@ -136,6 +136,42 @@ def score_song(user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
             score += acoustic_pts
             if acoustic_pts > 0.3:
                 reasons.append(f"+{acoustic_pts:.2f} electronic/produced sound")
+
+    # Popularity bonus: up to +0.5 points
+    popularity_pts = (song.get("popularity", 50) / 100) * 0.5
+    score += popularity_pts
+    reasons.append(f"+{popularity_pts:.2f} popularity bonus")
+
+    # Artist popularity bonus: up to +0.25 points
+    artist_pop_pts = (song.get("artist_popularity", 50) / 100) * 0.25
+    score += artist_pop_pts
+    reasons.append(f"+{artist_pop_pts:.2f} artist popularity bonus")
+
+    # Detailed mood tags match: +0.5 if user's mood is in tags
+    if user_prefs.get("mood") in song.get("detailed_mood_tags", []):
+        score += 0.5
+        reasons.append("+0.5 detailed mood tag match")
+
+    # Release year bonus: +0.3 for modern music (2020+)
+    if song.get("release_year", 2000) >= 2020:
+        score += 0.3
+        reasons.append("+0.3 modern release bonus")
+
+    # Song length bonus: +0.2 for ideal length (180-240 seconds)
+    length = song.get("song_length_seconds", 200)
+    if 180 <= length <= 240:
+        score += 0.2
+        reasons.append("+0.2 ideal length bonus")
+
+    # Language bonus: +0.1 for English
+    if song.get("language") == "English":
+        score += 0.1
+        reasons.append("+0.1 English language bonus")
+
+    # Explicit penalty: -0.5 if explicit
+    if song.get("explicit", 0) == 1:
+        score -= 0.5
+        reasons.append("-0.5 explicit content penalty")
 
     if not reasons:
         reasons.append("weak overall match")
