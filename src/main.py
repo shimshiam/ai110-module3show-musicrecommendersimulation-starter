@@ -29,6 +29,7 @@ def run_profile(name: str, user_prefs: dict, songs: list, k: int = 5) -> None:
 
 def main() -> None:
     songs = load_songs("data/songs.csv")
+    print(f"Loaded songs: {len(songs)}")
 
     profiles = {
         # The upbeat pop listener — wants high energy, mainstream, and electronic

@@ -19,11 +19,13 @@ Replace this paragraph with your own summary of what your version does.
 
 Real music apps like Spotify and YouTube dont just pick songs at random. They look at what other people with similar taste are listening to, and what the actual song sounds like compared to things you already enjoy. Collaborative filtering is great at helping you discover unexpected songs you might not find on your own but it needs tons of user data to work. Content-based filtering can work right away because it just compares song features to your preferences but it tends to keep recommending the same kind of thing over and over.
 
-My version focuses on content-based filtering because I'm working with a small catalog of only 10 songs. Each song and user profile stores the following features:
+My version focuses on content-based filtering because I'm working with a small catalog of 20 songs and dont have data from other users. The system takes two inputs, a user taste profile and the song catalog, runs every song through a scoring formula, then sorts the results and returns the top 5.
+
+### Features
 
 Song features used for scoring:
-- `genre` (string) - the songs genre like pop, lofi, rock, ambient, jazz, synthwave, or indie pop
-- `mood` (string) - the feeling of the song like happy, chill, intense, moody, relaxed, or focused
+- `genre` (string) - the songs genre like pop, lofi, rock, metal, hip-hop, folk, blues, etc
+- `mood` (string) - the feeling of the song like happy, chill, intense, aggressive, soulful, dreamy, etc
 - `energy` (float, 0.0 to 1.0) - how intense or calm the song sounds
 - `acousticness` (float, 0.0 to 1.0) - how acoustic vs electronic the song is
 
@@ -36,7 +38,45 @@ UserProfile preferences:
 - `target_energy` (float, 0.0 to 1.0) - not a minimum or maximum but a target, songs closer to this value score higher
 - `likes_acoustic` (bool) - whether the user prefers organic acoustic sound or electronic produced sound
 
-Genre and mood are yes or no matches. Energy uses a closeness calculation so that a song with energy near the users target scores higher than one thats far away even if the far away one has more energy overall. Acousticness works with the users boolean preference to either reward or penalize acoustic tracks. Each feature gets a weight aswell, genre counts the most at 35%, then mood and energy each at 25%, and acousticness at 15%. The system sorts them from highest to lowest and returns the top 5.
+### Algorithm Recipe
+
+The system uses additive point scoring. Each song starts at 0 points and earns points for each feature that matches or is close to the users preferences:
+
+- **Genre match: +2.0 points** - if the songs genre exactly matches the users favorite genre it gets the biggest bonus. This is the heaviest weight because genre is an identity level preference. When someone says they like lofi they mean it and getting a metal recommendation would feel completely wrong.
+- **Mood match: +1.0 point** - if the songs mood matches the users preferred mood. Mood is worth half of genre because its more situational. The same person might want chill today and intense tomorrow but their genre preference stays the same.
+- **Energy closeness: up to +1.0 point** - calculated as `1.0 - |user_target - song_energy|`. This rewards proximity not direction. A user targeting 0.80 gets almost full points from a song at 0.82 but very few points from a song at 0.28. A song thats too energetic is penalized the same as one thats too calm.
+- **Acoustic fit: up to +0.5 points** - calculated as `0.5 x song_acousticness` if the user likes acoustic or `0.5 x (1.0 - song_acousticness)` if they prefer electronic. Lowest weight because production style is more of a texture preference than a dealbreaker.
+
+Maximum possible score: **4.5 points** (genre + mood + perfect energy + perfect acoustic fit)
+
+After scoring all 20 songs the system sorts them highest to lowest and returns the top k (default 5).
+
+### Data Flow
+
+```
+INPUT                          PROCESS                         OUTPUT
+─────                          ───────                         ──────
+songs.csv (20 songs)  ──┐
+                        ├──>  For each song:                  Sort all 20 scored
+User Preferences  ──────┘       Check genre   (+2.0 or 0)     songs by score
+  genre: "pop"                  Check mood    (+1.0 or 0)      descending
+  mood: "happy"                 Calc energy   (+0.0 to 1.0)         │
+  energy: 0.80                  Calc acoustic (+0.0 to 0.5)         v
+  likes_acoustic: false         Sum = total score              Return top 5
+                                                               with explanations
+```
+
+### Expected Biases and Limitations
+
+This system has a few biases that come directly from its design choices:
+
+- **Genre dominance** - at 2.0 points genre is worth more than mood and energy combined (1.0 + 1.0). This means a song in the right genre with the wrong mood will almost always outrank a song with the perfect mood in the wrong genre. For example a pop/intense song beats an indie-pop/happy song for a pop/happy user even though the second one nails the mood. This could cause the system to miss great cross-genre recommendations.
+- **No concept of similar genres** - the system treats genre as all or nothing. Rock and metal get zero credit for being related. Lofi and ambient get zero credit for being related. A real listener who likes rock probably also likes metal but the system has no way to know that.
+- **Same problem with mood** - chill, relaxed, peaceful, and focused are all in the same neighborhood but the system treats them as completely different. A chill user gets nothing from a relaxed song.
+- **Filter bubble** - because this is content-based filtering it can only recommend things that look like what you already said you like. It will never suggest something surprising or help you discover a new genre the way collaborative filtering could.
+- **Single taste profile** - real people have layered preferences like mostly lofi but sometimes jazz. The system only accepts one genre and one mood so it cant represent that kind of complexity.
+- **Small catalog bias** - with only 20 songs most genres have exactly one song. If that one song has low energy and the user wants high energy there is nothing else in that genre to fall back on.
+- **Acoustic preference is too blunt** - its a boolean applied to a spectrum. There is no way to say mostly acoustic but a little production is fine.
 
 ---
 
