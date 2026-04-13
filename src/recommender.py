@@ -99,52 +99,52 @@ def load_songs(csv_path: str) -> List[Dict]:
 
 def score_song(user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
     """
-    Scores a single song against user preferences.
+    Scores a single song against user preferences using additive points.
     Required by recommend_songs() and src/main.py
 
-    Weights: genre 0.35, mood 0.25, energy 0.25, acousticness 0.15
-    Each sub-score is 0.0–1.0, so total score is 0.0–1.0.
+    Point values:
+      Genre match:      +2.0 points  (strongest signal, identity-level)
+      Mood match:       +1.0 point   (situational preference)
+      Energy closeness: up to +1.0   (proximity to user's target)
+      Acoustic fit:     up to +0.5   (texture tiebreaker)
+    Maximum possible score: 4.5
     """
+    score = 0.0
     reasons = []
 
-    # Genre match (binary: 0 or 1)
-    genre_score = 1.0 if song["genre"] == user_prefs.get("genre") else 0.0
-    if genre_score == 1.0:
-        reasons.append(f"genre match ({song['genre']})")
+    # Genre match: +2.0 points
+    if song["genre"] == user_prefs.get("genre"):
+        score += 2.0
+        reasons.append(f"+2.0 genre match ({song['genre']})")
 
-    # Mood match (binary: 0 or 1)
-    mood_score = 1.0 if song["mood"] == user_prefs.get("mood") else 0.0
-    if mood_score == 1.0:
-        reasons.append(f"mood match ({song['mood']})")
+    # Mood match: +1.0 point
+    if song["mood"] == user_prefs.get("mood"):
+        score += 1.0
+        reasons.append(f"+1.0 mood match ({song['mood']})")
 
-    # Energy closeness: 1 - |target - actual|
-    energy_score = 0.0
+    # Energy closeness: up to +1.0 point
     if "energy" in user_prefs:
-        energy_diff = abs(user_prefs["energy"] - song["energy"])
-        energy_score = 1.0 - energy_diff
-        reasons.append(f"energy closeness {energy_score:.0%}")
+        energy_pts = 1.0 - abs(user_prefs["energy"] - song["energy"])
+        score += energy_pts
+        reasons.append(f"+{energy_pts:.2f} energy closeness")
 
-    # Acoustic fit: use raw acousticness or its inverse
-    acoustic_score = 0.5  # neutral default when preference not specified
+    # Acoustic fit: up to +0.5 points
     if "likes_acoustic" in user_prefs:
         if user_prefs["likes_acoustic"]:
-            acoustic_score = song.get("acousticness", 0.5)
-            if acoustic_score > 0.6:
-                reasons.append("acoustic sound")
+            acoustic_pts = 0.5 * song.get("acousticness", 0.5)
+            score += acoustic_pts
+            if acoustic_pts > 0.3:
+                reasons.append(f"+{acoustic_pts:.2f} acoustic sound")
         else:
-            acoustic_score = 1.0 - song.get("acousticness", 0.5)
-            if acoustic_score > 0.6:
-                reasons.append("electronic/produced sound")
-
-    total = (0.35 * genre_score
-             + 0.25 * mood_score
-             + 0.25 * energy_score
-             + 0.15 * acoustic_score)
+            acoustic_pts = 0.5 * (1.0 - song.get("acousticness", 0.5))
+            score += acoustic_pts
+            if acoustic_pts > 0.3:
+                reasons.append(f"+{acoustic_pts:.2f} electronic/produced sound")
 
     if not reasons:
         reasons.append("weak overall match")
 
-    return (total, reasons)
+    return (score, reasons)
 
 def recommend_songs(user_prefs: Dict, songs: List[Dict], k: int = 5) -> List[Tuple[Dict, float, str]]:
     """
