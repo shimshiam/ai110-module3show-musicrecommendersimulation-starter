@@ -9,22 +9,48 @@ You will implement the functions in recommender.py:
 - recommend_songs
 """
 
-from recommender import load_songs, recommend_songs
+try:
+    from src.recommender import load_songs, recommend_songs
+except ModuleNotFoundError:
+    from recommender import load_songs, recommend_songs
+
+
+def format_bar(score: float, max_score: float = 4.5, width: int = 20) -> str:
+    filled = int((score / max_score) * width)
+    return "#" * filled + "-" * (width - filled)
 
 
 def run_profile(name: str, user_prefs: dict, songs: list, k: int = 5) -> None:
-    print(f"\n{'='*50}")
-    print(f"Profile: {name}")
-    print(f"Prefs:   {user_prefs}")
-    print(f"{'='*50}\n")
+    prefs_display = (
+        f"Genre: {user_prefs.get('genre', '-'):12s} "
+        f"Mood: {user_prefs.get('mood', '-'):12s} "
+        f"Energy: {user_prefs.get('energy', '-'):<5} "
+        f"Acoustic: {'yes' if user_prefs.get('likes_acoustic') else 'no'}"
+    )
+
+    print()
+    print("+" + "-" * 58 + "+")
+    print(f"|  PROFILE: {name:46s}|")
+    print("|  " + prefs_display.ljust(56) + "|")
+    print("+" + "-" * 58 + "+")
 
     recommendations = recommend_songs(user_prefs, songs, k=k)
 
     for rank, rec in enumerate(recommendations, 1):
         song, score, explanation = rec
-        print(f"  {rank}. {song['title']} ({song['genre']}, {song['mood']}) - Score: {score:.2f}")
-        print(f"     Because: {explanation}")
-    print()
+        bar = format_bar(score)
+        reasons = explanation.split("; ")
+
+        print(f"|                                                          |")
+        print(f"|  #{rank}  {song['title']:<25s} {song['artist']:<18s}|")
+        print(f"|       Genre: {song['genre']:<12s}  Mood: {song['mood']:<14s}   |")
+        print(f"|       Score: {score:.2f} / 4.50  [{bar}]   |")
+
+        for reason in reasons:
+            print(f"|         {reason:<49s}|")
+
+    print(f"|                                                          |")
+    print("+" + "-" * 58 + "+")
 
 
 def main() -> None:
