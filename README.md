@@ -17,17 +17,26 @@ Replace this paragraph with your own summary of what your version does.
 
 ## How The System Works
 
-Explain your design in plain language.
+Real music apps like Spotify and YouTube dont just pick songs at random. They look at what other people with similar taste are listening to, and what the actual song sounds like compared to things you already enjoy. Collaborative filtering is great at helping you discover unexpected songs you might not find on your own but it needs tons of user data to work. Content-based filtering can work right away because it just compares song features to your preferences but it tends to keep recommending the same kind of thing over and over.
 
-Some prompts to answer:
+My version focuses on content-based filtering because I'm working with a small catalog of only 10 songs. Each song and user profile stores the following features:
 
-- What features does each `Song` use in your system
-  - For example: genre, mood, energy, tempo
-- What information does your `UserProfile` store
-- How does your `Recommender` compute a score for each song
-- How do you choose which songs to recommend
+Song features used for scoring:
+- `genre` (string) - the songs genre like pop, lofi, rock, ambient, jazz, synthwave, or indie pop
+- `mood` (string) - the feeling of the song like happy, chill, intense, moody, relaxed, or focused
+- `energy` (float, 0.0 to 1.0) - how intense or calm the song sounds
+- `acousticness` (float, 0.0 to 1.0) - how acoustic vs electronic the song is
 
-You can include a simple diagram or bullet list if helpful.
+Song features stored but not scored:
+- `tempo_bpm`, `valence`, `danceability` - these overlap too much with energy and mood so including them would double count the same information
+
+UserProfile preferences:
+- `favorite_genre` (string) - the genre the user identifies with most
+- `favorite_mood` (string) - the mood the user is looking for right now
+- `target_energy` (float, 0.0 to 1.0) - not a minimum or maximum but a target, songs closer to this value score higher
+- `likes_acoustic` (bool) - whether the user prefers organic acoustic sound or electronic produced sound
+
+Genre and mood are yes or no matches. Energy uses a closeness calculation so that a song with energy near the users target scores higher than one thats far away even if the far away one has more energy overall. Acousticness works with the users boolean preference to either reward or penalize acoustic tracks. Each feature gets a weight aswell, genre counts the most at 35%, then mood and energy each at 25%, and acousticness at 15%. The system sorts them from highest to lowest and returns the top 5.
 
 ---
 
